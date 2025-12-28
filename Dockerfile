@@ -1,32 +1,23 @@
-FROM ubuntu:22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install dependencies
-RUN apt update && apt install -y \
-    curl git unzip xz-utils zip \
-    openjdk-17-jdk wget \
-    && apt clean
-
-# Flutter
-RUN git clone https://github.com/flutter/flutter.git /opt/flutter
-ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
-
-# Android SDK
-ENV ANDROID_HOME=/opt/android-sdk
-RUN mkdir -p $ANDROID_HOME/cmdline-tools
-
-RUN wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip \
-    && unzip commandlinetools-linux-11076708_latest.zip \
-    && mv cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-
-ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-
-RUN yes | sdkmanager --licenses
-RUN sdkmanager "platform-tools" "platforms;android-36" "build-tools;28.0.3"
+# ---------- Stage 1: Build APK ----------
+FROM ghcr.io/cirruslabs/flutter:3.22.3 AS builder
 
 WORKDIR /app
+
+# Copy only pubspec first (cache deps)
+COPY pubspec.* ./
+RUN flutter pub get
+
+# Copy rest of source
 COPY . .
 
-RUN flutter pub get
+# Build APK
 RUN flutter build apk --release
+
+# ---------- Stage 2: Minimal output image ----------
+FROM alpine:latest
+
+WORKDIR /output
+
+COPY --from=builder /app/build/app/outputs/flutter-apk/app-release.apk .
+
+CMD ["sh"]
