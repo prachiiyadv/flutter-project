@@ -1,9 +1,8 @@
-# ---------- Stage 1: Build APK ----------
-FROM ghcr.io/cirruslabs/flutter:3.38.5
+FROM ghcr.io/cirruslabs/flutter:3.38.5 AS builder
 
 WORKDIR /app
 
-# Copy only pubspec first (cache deps)
+# Cache dependencies
 COPY pubspec.* ./
 RUN flutter pub get
 
@@ -12,12 +11,3 @@ COPY . .
 
 # Build APK
 RUN flutter build apk --release
-
-# ---------- Stage 2: Minimal output image ----------
-FROM alpine:latest
-
-WORKDIR /output
-
-COPY --from=builder /app/build/app/outputs/flutter-apk/app-release.apk .
-
-CMD ["sh"]
