@@ -1,0 +1,66 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "flutter-apk-builder"
+        SONAR_TOKEN = credentials('sonar-token')
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main',
+                url: 'https://https://github.com/prachiiyadv/flutter-project.git'
+            }
+        }
+
+        stage('Trivy File Scan') {
+            steps {
+                sh 'trivy fs .'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh '''
+                    sonar-scanner \
+                    -Dsonar.login=$SONAR_TOKEN
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE .'
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                sh 'trivy image $DOCKER_IMAGE'
+            }
+        }
+
+        stage('Extract APK') {
+            steps {
+                sh '''
+                docker create --name apk_container $DOCKER_IMAGE
+                docker cp apk_container:/app/build/app/outputs/flutter-apk/app-release.apk .
+                docker rm apk_container
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ APK Build Successful"
+        }
+        failure {
+            echo "❌ Build Failed"
+        }
+    }
+}
