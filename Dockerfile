@@ -1,5 +1,5 @@
 # ---------- Stage 1: Build APK ----------
-FROM ghcr.io/cirruslabs/flutter:3.22.3 AS builder
+FROM ghcr.io/cirruslabs/flutter:3.38.5
 
 WORKDIR /app
 
